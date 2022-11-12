@@ -132,9 +132,15 @@ app.get("/messages", async(req, res) => {
     const {user} = req.headers;
 
     try{
-        const mensagensSalvas = await mensagens.find({to: user}).toArray();
-    
-        res.status(201).send(mensagensSalvas)
+        const mensagensSalvas = await mensagens.find().toArray();
+
+        const mensagensFiltradas = mensagensSalvas.filter(m => m.to === user || m.type === "message");
+            
+            if(!limit){
+                res.status(201).send(mensagensFiltradas)
+            }else{
+                res.status(201).send(mensagensFiltradas.slice(-limit))
+            }
 
     } catch(err){
         res.status(500)
