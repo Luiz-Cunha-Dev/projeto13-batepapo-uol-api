@@ -86,7 +86,6 @@ app.get("/participants", async(req, res) => {
 });
 
 
-
 app.post("/messages", async(req, res) => {
     const message = req.body;
     const { user } = req.headers;
@@ -125,8 +124,6 @@ app.post("/messages", async(req, res) => {
     }
 });
 
-
-
 app.get("/messages", async(req, res) => {
     const {limit} = req.query;
     const {user} = req.headers;
@@ -147,5 +144,28 @@ app.get("/messages", async(req, res) => {
         console.log(err);
     }
 });
+
+app.post("/status", async(req, res) => {
+    const {user} = req.headers;
+
+    try{
+        const usuarioExistente = await usuarios.findOne({name: user})
+
+        if(!usuarioExistente){
+            res.sendStatus(404);
+        }
+
+        const usuarioAtualizado = {... usuarioExistente, lastStatus: Date.now()}
+
+        await usuarios.updateOne({name: user},{ $set: usuarioAtualizado })
+
+        res.sendStatus(200)
+
+    } catch(err){
+        res.status(500);
+        console.log(err);
+    }
+
+})
 
 app.listen(5000, () => console.log("Server running in port: 5000"))
