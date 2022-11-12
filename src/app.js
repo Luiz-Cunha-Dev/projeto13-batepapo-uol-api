@@ -3,6 +3,7 @@ import cors from "cors";
 import {MongoClient} from "mongodb";
 import dotenv from "dotenv";
 import Joi from "joi";
+import dayjs from "dayjs";
 
 
  const nameSchema = Joi.object({
@@ -11,7 +12,7 @@ import Joi from "joi";
 
 const messageSchema = Joi.object({
     to: Joi.string().required(),
-    text: Joi.required(),
+    text: Joi.string().required(),
     type: Joi.string().required().valid('message', 'private_message')
 });
 
@@ -24,6 +25,7 @@ app.use(json());
 let db;
 let mensagens;
 let usuarios;
+let now = dayjs();
 
 try{
     const mongoClient = new MongoClient(process.env.MONGO_URI);
@@ -85,11 +87,54 @@ app.get("/participants", async(req, res) => {
 
 
 
-app.get("/messages", async(req, res) => {
+app.post("/messages", async(req, res) => {
+    const message = req.body;
+    const { user } = req.headers;
 
     try{
+        const usuarioExistente = await usuarios.findOne({name: user})
 
-        res.status(201).send("OK")
+        if(!user || !usuarioExistente){
+            res.sendStatus(422)
+            return
+        }
+
+        const validation = messageSchema.validate(message, {abortEarly: false});
+
+        if(validation.error){
+            const erros = validation.error.details.map(detail => detail.message)
+            res.status(422).send(erros)
+            return
+        }
+
+        const mensagem = {
+            from: user,
+            to: message.to,
+            text: message.text,
+            type: message.type,
+            time: now.format("HH:mm:ss")
+        }
+
+        await mensagens.insertOne(mensagem)
+
+        res.sendStatus(201)
+
+    } catch(err){
+        res.status(500)
+        console.log(err);
+    }
+});
+
+
+
+app.get("/messages", async(req, res) => {
+    const {limit} = req.query;
+    const {user} = req.headers;
+
+    try{
+        const mensagensSalvas = await mensagens.find({to: user}).toArray();
+    
+        res.status(201).send(mensagensSalvas)
 
     } catch(err){
         res.status(500)
