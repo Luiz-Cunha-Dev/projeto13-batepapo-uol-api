@@ -86,6 +86,7 @@ app.get("/participants", async(req, res) => {
 });
 
 
+
 app.post("/messages", async(req, res) => {
     const message = req.body;
     const { user } = req.headers;
@@ -144,6 +145,30 @@ app.get("/messages", async(req, res) => {
         console.log(err);
     }
 });
+
+app.delete("/messages/:id", async(req, res) => {
+    const {user} = req.headers;
+    const {id} = req.params;
+
+    try{
+       const mensagemEscolhida = await mensagens.findOne({_id: ObjectId(id)});
+        
+        if(!mensagemEscolhida){
+            res.sendStatus(404)
+            return
+        }else if(mensagemEscolhida.from !== user){
+            res.sendStatus(401)
+            return
+        }
+
+        await mensagens.deleteOne({_id: ObjectId(id)})
+        res.sendStatus(200)
+
+    }catch(err){
+        res.status(500)
+        console.log(err);
+    }
+})
 
 
 
