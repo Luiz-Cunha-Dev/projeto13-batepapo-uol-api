@@ -1,6 +1,6 @@
 import express, {json} from "express";
 import cors from "cors";
-import {MongoClient} from "mongodb";
+import {MongoClient, ObjectId} from "mongodb";
 import dotenv from "dotenv";
 import Joi from "joi";
 import dayjs from "dayjs";
@@ -91,11 +91,11 @@ app.post("/messages", async(req, res) => {
     const { user } = req.headers;
 
     try{
-        const usuarioExistente = await usuarios.findOne({name: user})
+        const usuarioExistente = await usuarios.findOne({name: user});
 
         if(!user || !usuarioExistente){
-            res.sendStatus(422)
-            return
+            res.sendStatus(422);
+            return;
         }
 
         const validation = messageSchema.validate(message, {abortEarly: false});
@@ -104,7 +104,7 @@ app.post("/messages", async(req, res) => {
             const erros = validation.error.details.map(detail => detail.message)
             res.status(422).send(erros)
             return
-        }
+        };
 
         const mensagem = {
             from: user,
@@ -112,14 +112,14 @@ app.post("/messages", async(req, res) => {
             text: message.text,
             type: message.type,
             time: now.format("HH:mm:ss")
-        }
+        };
 
-        await mensagens.insertOne(mensagem)
+        await mensagens.insertOne(mensagem);
 
-        res.sendStatus(201)
+        res.sendStatus(201);
 
     } catch(err){
-        res.status(500)
+        res.status(500);
         console.log(err);
     }
 });
@@ -131,7 +131,7 @@ app.get("/messages", async(req, res) => {
     try{
         const mensagensSalvas = await mensagens.find().toArray();
 
-        const mensagensFiltradas = mensagensSalvas.filter(m => m.to === user || m.type === "message");
+        const mensagensFiltradas = mensagensSalvas.filter(m => m.to === user || m.type === "message" || m.type === "status");
             
             if(!limit){
                 res.status(201).send(mensagensFiltradas)
@@ -145,21 +145,24 @@ app.get("/messages", async(req, res) => {
     }
 });
 
+
+
+
 app.post("/status", async(req, res) => {
     const {user} = req.headers;
 
     try{
-        const usuarioExistente = await usuarios.findOne({name: user})
+        const usuarioExistente = await usuarios.findOne({name: user});
 
         if(!usuarioExistente){
             res.sendStatus(404);
         }
 
-        const usuarioAtualizado = {... usuarioExistente, lastStatus: Date.now()}
+        const usuarioAtualizado = {... usuarioExistente, lastStatus: Date.now()};
 
-        await usuarios.updateOne({name: user},{ $set: usuarioAtualizado })
+        await usuarios.updateOne({name: user},{ $set: usuarioAtualizado });
 
-        res.sendStatus(200)
+        res.sendStatus(200);
 
     } catch(err){
         res.status(500);
@@ -168,4 +171,33 @@ app.post("/status", async(req, res) => {
 
 })
 
-app.listen(5000, () => console.log("Server running in port: 5000"))
+
+setInterval(async() => {
+
+    try{
+        const participantes = await usuarios.find().toArray()
+        const participantesInativos = participantes.filter(p => Date.now() - p.lastStatus > 10000)
+    
+    
+        participantesInativos.map(async(p) => {
+            const mensagem = {
+                from: p.name,
+                to: "Todos",
+                text: "sai da sala...",
+                type: "status",
+                time: now.format("HH:mm:ss")
+            }
+    
+            await usuarios.deleteOne({_id: ObjectId(p._id)});
+            await mensagens.insertOne(mensagem);
+        });
+
+    }catch(err){
+        console.log(err);
+    }
+
+} , 15000)
+
+
+
+app.listen(5000, () => console.log("Server running in port: 5000"));
