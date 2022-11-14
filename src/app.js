@@ -170,7 +170,53 @@ app.delete("/messages/:id", async(req, res) => {
     }
 })
 
+app.put("/messages/:id", async(req, res) => {
+    const message = req.body;
+    const {user} = req.headers;
+    const {id} = req.params;
 
+    try{
+        const usuarioExistente = await usuarios.findOne({name: user});
+
+        if(!user || !usuarioExistente){
+            res.sendStatus(422);
+            return;
+        }
+
+        const validation = messageSchema.validate(message, {abortEarly: false});
+
+        if(validation.error){
+            const erros = validation.error.details.map(detail => detail.message)
+            res.status(422).send(erros)
+            return
+        };
+
+        const mensagemEscolhida = await mensagens.findOne({_id: ObjectId(id)});
+        
+        if(!mensagemEscolhida){
+            res.sendStatus(404)
+            return
+        }else if(mensagemEscolhida.from !== user){
+            res.sendStatus(401)
+            return
+        }
+
+        const mensagem = {
+            from: user,
+            to: message.to,
+            text: message.text,
+            type: message.type,
+            time: now.format("HH:mm:ss")
+        };
+
+        await mensagens.updateOne({_id: ObjectId(id)}, {$set: mensagem});
+        res.sendStatus(201);
+
+    }catch(err){
+        res.status(500)
+        console.log(err);
+    }
+})
 
 
 app.post("/status", async(req, res) => {
